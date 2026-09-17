@@ -185,6 +185,21 @@ h1, h2, h3 {
   50% { opacity: 0.4; transform: scale(1.4); }
 }
 
+/* ---- Status Badge (pixel lane — code-generated pixel-grid icon, not an
+   image asset; see artcollect-design-system.md §4/§5) ---- */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ac-space-1);
+  padding: var(--ac-space-1) var(--ac-space-2);
+  border-radius: var(--ac-radius-sticker);
+  background: var(--ac-paper-deep);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
 /*
  * ---- Critical-flow lockout ----
  * Per artcollect-design-system.md §7: fare payment AND the SOS/safety

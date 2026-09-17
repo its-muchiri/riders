@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rider.co.ke — Component Showcase</title>
+<link rel="stylesheet" href="/assets/css/main.css">
+<style>
+  .showcase-section { padding-block: var(--ac-space-8); border-bottom: 1px solid var(--ac-paper-deep); }
+  .showcase-section h2 { margin-bottom: var(--ac-space-4); }
+  .showcase-row { display: flex; flex-wrap: wrap; gap: var(--ac-space-4); align-items: flex-start; }
+  .card { width: 16rem; }
+  pre.showcase-output { background: var(--ac-paper-deep); padding: var(--ac-space-3); border-radius: var(--ac-radius-control); font-size: 0.8rem; overflow-x: auto; }
+</style>
+</head>
+<body>
+  <header class="site-header container">
+    <strong>rider.co.ke</strong>
+    <span class="card__meta">Component Showcase — not a real page, see /planning/02-rider-co-ke/user-flows.md for the real flows</span>
+  </header>
+
+  <main class="container">
+    <section class="showcase-section">
+      <h2>Card</h2>
+      <div class="showcase-row" id="card-demo"></div>
+    </section>
+
+    <section class="showcase-section">
+      <h2>Status Timeline</h2>
+      <div id="timeline-demo" style="max-width: 40rem;"></div>
+    </section>
+
+    <section class="showcase-section">
+      <h2>Dispatch Status (this platform's distinctive real-time component)</h2>
+      <div class="showcase-row" id="dispatch-demo"></div>
+    </section>
+
+    <section class="showcase-section">
+      <h2>Status Badge (new — pixel lane, code-generated)</h2>
+      <div class="showcase-row" id="badge-demo"></div>
+    </section>
+
+    <section class="showcase-section">
+      <h2>FAB</h2>
+      <p class="card__meta">Bottom-right corner of this page — rider.co.ke's primary quick action.</p>
+    </section>
+
+    <section class="showcase-section">
+      <h2>Modal</h2>
+      <button class="btn btn--primary" id="open-modal-btn">Open modal</button>
+    </section>
+
+    <section class="showcase-section">
+      <h2>Live API check</h2>
+      <p class="card__meta">Fetches <code>GET /api/v1/store/products</code> from the real running backend — proves this page and the API are the same app, not a mockup.</p>
+      <pre class="showcase-output" id="api-output">loading…</pre>
+    </section>
+  </main>
+
+  <footer class="site-footer container">
+    <span class="card__meta">artcollect.co.ke-derived design system — see /planning/00-portfolio/artcollect-design-system.md</span>
+  </footer>
+
+  <script type="module">
+    import { createCard } from "/assets/js/components/card.js";
+    import { createStatusTimeline, RIDER_TRIP_STEPS } from "/assets/js/components/status-timeline.js";
+    import { createDispatchStatus } from "/assets/js/components/dispatch-status.js";
+    import { createStatusBadge } from "/assets/js/components/status-badge.js";
+    import { createFab } from "/assets/js/components/fab.js";
+    import { openModal } from "/assets/js/components/modal.js";
+
+    // Card
+    const cardDemo = document.getElementById("card-demo");
+    cardDemo.appendChild(createCard({
+      title: "James Mwangi",
+      meta: ["4.9 ★", "Motorcycle", "Elite tier"],
+      onSelect: () => alert("Selected James Mwangi"),
+    }));
+    cardDemo.appendChild(createCard({
+      title: "Grace Wanjiru",
+      meta: ["4.7 ★", "Car", "Priority tier"],
+      onSelect: () => alert("Selected Grace Wanjiru"),
+    }));
+
+    // Status Timeline
+    document.getElementById("timeline-demo").appendChild(
+      createStatusTimeline({ steps: RIDER_TRIP_STEPS, currentIndex: 2 })
+    );
+
+    // Dispatch Status
+    const dispatchDemo = document.getElementById("dispatch-demo");
+    dispatchDemo.appendChild(createDispatchStatus({ state: "searching", label: "Status: searching" }));
+    dispatchDemo.appendChild(createDispatchStatus({ state: "matched", label: "Status: matched" }));
+    dispatchDemo.appendChild(createDispatchStatus({ state: "en_route", label: "Status: en route" }));
+
+    // Status Badge
+    const badgeDemo = document.getElementById("badge-demo");
+    badgeDemo.appendChild(createStatusBadge({ label: "requested", tone: "neutral" }));
+    badgeDemo.appendChild(createStatusBadge({ label: "matched", tone: "accent" }));
+    badgeDemo.appendChild(createStatusBadge({ label: "in progress", tone: "warning" }));
+    badgeDemo.appendChild(createStatusBadge({ label: "completed", tone: "success", icon: "check" }));
+    badgeDemo.appendChild(createStatusBadge({ label: "cancelled", tone: "danger", icon: "alert" }));
+
+    // FAB
+    document.body.appendChild(createFab({ label: "Request a Ride", onClick: () => alert("FAB clicked — would open the request flow") }));
+
+    // Modal
+    document.getElementById("open-modal-btn").addEventListener("click", () => {
+      const content = document.createElement("div");
+      content.innerHTML = "<h3>Confirm request</h3><p>This is the shared Modal component.</p>";
+      const closeBtn = document.createElement("button");
+      closeBtn.className = "btn btn--secondary";
+      closeBtn.textContent = "Close";
+      content.appendChild(closeBtn);
+      const { close } = openModal({ content });
+      closeBtn.addEventListener("click", close);
+    });
+
+    // Live API check
+    fetch("/api/v1/store/products")
+      .then((r) => r.json())
+      .then((data) => { document.getElementById("api-output").textContent = JSON.stringify(data, null, 2); })
+      .catch((e) => { document.getElementById("api-output").textContent = "Error: " + e.message; });
+  </script>
+</body>
+</html>
