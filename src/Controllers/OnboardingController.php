@@ -37,7 +37,7 @@ final class OnboardingController
         try {
             $stmt = $db->prepare(
                 'INSERT INTO kyc_documents (user_id, document_type, file_reference, verification_status)
-                 VALUES (:user_id, :document_type, :file_reference, "pending")'
+                 VALUES (:user_id, :document_type, :file_reference, \'pending\')'
             );
             $documentIds = [];
             foreach ($documents as $document) {
@@ -52,7 +52,7 @@ final class OnboardingController
             $stmt = $db->prepare(
                 'INSERT INTO rider_vehicle_documents
                     (rider_id, vehicle_type, plate_number, driving_license_kyc_document_id, insurance_kyc_document_id, logbook_kyc_document_id, verification_status, created_at)
-                 VALUES (:rider_id, :vehicle_type, :plate_number, :license_doc_id, :insurance_doc_id, :logbook_doc_id, "pending", NOW())'
+                 VALUES (:rider_id, :vehicle_type, :plate_number, :license_doc_id, :insurance_doc_id, :logbook_doc_id, \'pending\', NOW())'
             );
             $stmt->execute([
                 'rider_id' => $riderId,
@@ -63,7 +63,7 @@ final class OnboardingController
                 'logbook_doc_id' => $documentIds['vehicle_logbook'] ?? null, // optional, per rider_vehicle_documents.logbook_kyc_document_id being nullable
             ]);
 
-            $stmt = $db->prepare('UPDATE users SET status = "pending_verification" WHERE id = :id');
+            $stmt = $db->prepare('UPDATE users SET status = \'pending_verification\' WHERE id = :id');
             $stmt->execute(['id' => $riderId]);
 
             $db->commit();

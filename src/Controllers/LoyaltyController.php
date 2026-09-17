@@ -47,7 +47,7 @@ final class LoyaltyController
 
         $stmt = $db->prepare(
             'INSERT INTO loyalty_points_ledger (customer_id, trip_id, points_change, reason, created_at)
-             VALUES (:customer_id, :trip_id, :points, "redeemed_for_discount", NOW())'
+             VALUES (:customer_id, :trip_id, :points, \'redeemed_for_discount\', NOW())'
         );
         $stmt->execute([
             'customer_id' => $customerId,

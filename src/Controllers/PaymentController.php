@@ -33,7 +33,7 @@ final class PaymentController
     {
         $db = Database::connection();
         $stmt = $db->prepare(
-            'SELECT * FROM payments WHERE user_id = :user_id AND type = "payout" ORDER BY created_at DESC'
+            'SELECT * FROM payments WHERE user_id = :user_id AND type = \'payout\' ORDER BY created_at DESC'
         );
         $stmt->execute(['user_id' => $request->user['id'] ?? null]);
 

@@ -20,10 +20,10 @@ final class StoreController
         $category = $request->query['category'] ?? null;
 
         if ($category) {
-            $stmt = $db->prepare('SELECT * FROM store_products WHERE status = "active" AND category = :category ORDER BY name');
+            $stmt = $db->prepare('SELECT * FROM store_products WHERE status = \'active\' AND category = :category ORDER BY name');
             $stmt->execute(['category' => $category]);
         } else {
-            $stmt = $db->query('SELECT * FROM store_products WHERE status = "active" ORDER BY name');
+            $stmt = $db->query('SELECT * FROM store_products WHERE status = \'active\' ORDER BY name');
         }
 
         Response::json($stmt->fetchAll());
@@ -59,7 +59,7 @@ final class StoreController
 
             $stmt = $db->prepare(
                 'INSERT INTO store_orders (customer_id, status, total_amount, delivery_address, created_at, updated_at)
-                 VALUES (:customer_id, "pending", :total, :address, NOW(), NOW())'
+                 VALUES (:customer_id, \'pending\', :total, :address, NOW(), NOW())'
             );
             $stmt->execute([
                 'customer_id' => $request->user['id'] ?? null,

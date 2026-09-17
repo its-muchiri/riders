@@ -43,7 +43,7 @@ final class SubscriptionController
             'INSERT INTO rider_subscriptions
                 (rider_id, plan_type, discounted_commission_rate, subscription_fee, status,
                  current_period_start, current_period_end, created_at)
-             VALUES (:rider_id, :plan_type, :rate, :fee, "active", CURDATE(), :period_end, NOW())'
+             VALUES (:rider_id, :plan_type, :rate, :fee, \'active\', CURDATE(), :period_end, NOW())'
         );
         $stmt->execute([
             'rider_id' => $request->user['id'] ?? null,
@@ -60,7 +60,7 @@ final class SubscriptionController
     {
         $db = Database::connection();
         $stmt = $db->prepare(
-            'SELECT * FROM rider_subscriptions WHERE rider_id = :rider_id AND status = "active" ORDER BY created_at DESC LIMIT 1'
+            'SELECT * FROM rider_subscriptions WHERE rider_id = :rider_id AND status = \'active\' ORDER BY created_at DESC LIMIT 1'
         );
         $stmt->execute(['rider_id' => $request->user['id'] ?? null]);
 

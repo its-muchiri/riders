@@ -28,7 +28,7 @@ final class TripController
                  destination_lat, destination_lng, destination_address, recipient_phone_number,
                  estimated_distance_km, estimated_duration_min, surge_multiplier, estimated_fare,
                  requested_at, created_at, updated_at)
-             VALUES (:customer_id, :trip_type, "requested", :pickup_lat, :pickup_lng, :pickup_address,
+             VALUES (:customer_id, :trip_type, \'requested\', :pickup_lat, :pickup_lng, :pickup_address,
                  :destination_lat, :destination_lng, :destination_address, :recipient_phone_number,
                  :distance_km, :duration_min, :surge, :estimated_fare, NOW(), NOW(), NOW())'
         );
@@ -81,7 +81,7 @@ final class TripController
     {
         $db = Database::connection();
         $stmt = $db->prepare(
-            'UPDATE rider_trips SET rider_id = :rider_id, status = "matched", matched_at = NOW(), updated_at = NOW() WHERE id = :id'
+            'UPDATE rider_trips SET rider_id = :rider_id, status = \'matched\', matched_at = NOW(), updated_at = NOW() WHERE id = :id'
         );
         $stmt->execute(['rider_id' => $request->user['id'] ?? null, 'id' => $request->params['id']]);
 
@@ -127,7 +127,7 @@ final class TripController
     public function cancel(Request $request): void
     {
         $db = Database::connection();
-        $stmt = $db->prepare('UPDATE rider_trips SET status = "cancelled", updated_at = NOW() WHERE id = :id');
+        $stmt = $db->prepare('UPDATE rider_trips SET status = \'cancelled\', updated_at = NOW() WHERE id = :id');
         $stmt->execute(['id' => $request->params['id']]);
 
         Response::json(['id' => (int) $request->params['id'], 'status' => 'cancelled']);
@@ -141,7 +141,7 @@ final class TripController
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO disputes (booking_id, raised_by, category, description, status, created_at)
-             VALUES (:booking_id, :raised_by, "safety_incident", "SOS triggered", "open", NOW())'
+             VALUES (:booking_id, :raised_by, \'safety_incident\', \'SOS triggered\', \'open\', NOW())'
         );
         $stmt->execute([
             'booking_id' => $request->params['id'],

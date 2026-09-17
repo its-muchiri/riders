@@ -82,7 +82,7 @@ final class RiderController
     public function profile(Request $request): void
     {
         $db = Database::connection();
-        $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = "provider"');
+        $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = \'provider\'');
         $stmt->execute(['id' => $request->params['id']]);
         $rider = $stmt->fetch();
 

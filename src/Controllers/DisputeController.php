@@ -20,7 +20,7 @@ final class DisputeController
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO disputes (booking_id, raised_by, category, description, evidence_urls, status, created_at)
-             VALUES (:booking_id, :raised_by, :category, :description, :evidence_urls, "open", NOW())'
+             VALUES (:booking_id, :raised_by, :category, :description, :evidence_urls, \'open\', NOW())'
         );
         $stmt->execute([
             'booking_id' => $request->params['id'],
@@ -39,8 +39,8 @@ final class DisputeController
         // see user-flows.md's Safety Incident admin journey.
         $db = Database::connection();
         $stmt = $db->query(
-            'SELECT * FROM disputes WHERE status IN ("open", "under_review")
-             ORDER BY (category = "safety_incident") DESC, created_at ASC'
+            'SELECT * FROM disputes WHERE status IN (\'open\', \'under_review\')
+             ORDER BY (category = \'safety_incident\') DESC, created_at ASC'
         );
 
         Response::json($stmt->fetchAll());

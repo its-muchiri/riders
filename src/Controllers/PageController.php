@@ -37,7 +37,7 @@ final class PageController
                 'SELECT u.id, u.full_name, rpt.average_rating, rpt.tier
                  FROM users u
                  JOIN rider_performance_tiers rpt ON rpt.rider_id = u.id
-                 WHERE u.account_type = "provider" AND u.status = "active"
+                 WHERE u.account_type = \'provider\' AND u.status = \'active\'
                  ORDER BY rpt.average_rating DESC
                  LIMIT 6'
             );
@@ -112,7 +112,7 @@ final class PageController
         try {
             $db = Database::connection();
 
-            $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = "provider"');
+            $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = \'provider\'');
             $stmt->execute(['id' => $riderId]);
             $rider = $stmt->fetch() ?: null;
 
