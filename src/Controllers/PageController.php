@@ -3,6 +3,7 @@
 namespace Rider\Controllers;
 
 use Rider\Config\Database;
+use Rider\Core\Auth;
 use Rider\Core\Request;
 use Rider\Core\View;
 use Rider\Models\RiderTrip;
@@ -100,6 +101,30 @@ final class PageController
             'tripId' => $tripId,
             'trip' => $trip,
             'critical' => true,
+        ]);
+    }
+
+    public function riderOnboard(Request $request): void
+    {
+        // KYC/vehicle-document submission (see OnboardingController) —
+        // Supply-Side Journey step 2 in user-flows.md. Requires a logged-in
+        // rider account (created via /signup with account_type=provider).
+        if (Auth::id() === null) {
+            header('Location: /login', true, 303);
+            return;
+        }
+        if (($request->user['account_type'] ?? null) !== 'provider') {
+            View::render('rider-onboard', [
+                'title' => 'Rider onboarding',
+                'notARider' => true,
+            ]);
+            return;
+        }
+
+        View::render('rider-onboard', [
+            'title' => 'Rider onboarding',
+            'notARider' => false,
+            'status' => $request->user['status'] ?? 'pending_verification',
         ]);
     }
 

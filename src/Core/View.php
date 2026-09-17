@@ -15,6 +15,11 @@ final class View
 {
     public static function render(string $template, array $data = []): void
     {
+        // Every page gets the current session user available as $currentUser
+        // (for layout.php's nav) without every controller having to thread
+        // it through explicitly — see src/Core/Auth.php.
+        $data['currentUser'] = $data['currentUser'] ?? Auth::currentUser();
+
         extract($data);
         $viewFile = __DIR__ . '/../Views/' . $template . '.php';
 

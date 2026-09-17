@@ -3,6 +3,7 @@
 namespace Rider\Controllers;
 
 use Rider\Config\Database;
+use Rider\Core\Auth;
 use Rider\Core\Request;
 use Rider\Core\Response;
 
@@ -19,8 +20,13 @@ final class OnboardingController
 {
     public function submit(Request $request): void
     {
+        $user = Auth::requireUser($request);
+        if (!$user) {
+            return;
+        }
+
         $db = Database::connection();
-        $riderId = $request->user['id'] ?? null;
+        $riderId = (int) $user['id'];
 
         $requiredDocs = ['national_id', 'driving_license', 'insurance_certificate'];
         $documents = $request->input('documents', []);

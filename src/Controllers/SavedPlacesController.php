@@ -40,10 +40,14 @@ final class SavedPlacesController
     public function preferRider(Request $request): void
     {
         $db = Database::connection();
-        $stmt = $db->prepare(
-            'INSERT INTO preferred_riders (customer_id, rider_id, created_at) VALUES (:customer_id, :rider_id, NOW())
-             ON DUPLICATE KEY UPDATE created_at = created_at'
-        );
+        // See Database::driver() and planning/00-portfolio/ui-implementation-plan.md
+        // for why this branches (Vercel's Marketplace has no MySQL-compatible database).
+        $sql = Database::driver() === 'pgsql'
+            ? 'INSERT INTO preferred_riders (customer_id, rider_id, created_at) VALUES (:customer_id, :rider_id, NOW())
+               ON CONFLICT (customer_id, rider_id) DO NOTHING'
+            : 'INSERT INTO preferred_riders (customer_id, rider_id, created_at) VALUES (:customer_id, :rider_id, NOW())
+               ON DUPLICATE KEY UPDATE created_at = created_at';
+        $stmt = $db->prepare($sql);
         $stmt->execute(['customer_id' => $request->user['id'] ?? null, 'rider_id' => $request->params['id']]);
 
         Response::json(['status' => 'preferred']);

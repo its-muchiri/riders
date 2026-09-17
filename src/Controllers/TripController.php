@@ -3,6 +3,7 @@
 namespace Rider\Controllers;
 
 use Rider\Config\Database;
+use Rider\Core\Auth;
 use Rider\Core\Request;
 use Rider\Core\Response;
 
@@ -17,6 +18,11 @@ final class TripController
 {
     public function create(Request $request): void
     {
+        $user = Auth::requireUser($request);
+        if (!$user) {
+            return;
+        }
+
         $db = Database::connection();
 
         // TODO: dispatch to nearest available rider via rider_availability
@@ -34,7 +40,7 @@ final class TripController
         );
 
         $stmt->execute([
-            'customer_id' => $request->user['id'] ?? null,
+            'customer_id' => $user['id'],
             'trip_type' => $request->input('trip_type'),
             'pickup_lat' => $request->input('pickup_lat'),
             'pickup_lng' => $request->input('pickup_lng'),
@@ -79,11 +85,16 @@ final class TripController
 
     public function accept(Request $request): void
     {
+        $user = Auth::requireUser($request);
+        if (!$user) {
+            return;
+        }
+
         $db = Database::connection();
         $stmt = $db->prepare(
             'UPDATE rider_trips SET rider_id = :rider_id, status = \'matched\', matched_at = NOW(), updated_at = NOW() WHERE id = :id'
         );
-        $stmt->execute(['rider_id' => $request->user['id'] ?? null, 'id' => $request->params['id']]);
+        $stmt->execute(['rider_id' => $user['id'], 'id' => $request->params['id']]);
 
         Response::json(['id' => (int) $request->params['id'], 'status' => 'matched']);
     }

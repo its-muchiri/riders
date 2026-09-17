@@ -7,6 +7,7 @@
  * @var \Rider\Core\Router $router
  */
 
+use Rider\Controllers\AuthController;
 use Rider\Controllers\DisputeController;
 use Rider\Controllers\LoyaltyController;
 use Rider\Controllers\OnboardingController;
@@ -28,6 +29,13 @@ $rider = new RiderController();
 $subscription = new SubscriptionController();
 $loyalty = new LoyaltyController();
 $savedPlaces = new SavedPlacesController();
+$auth = new AuthController();
+
+// Auth (shared identity/auth module — see MVP_STATUS.md checklist item 1)
+$router->post('/api/v1/auth/register', [$auth, 'register']);
+$router->post('/api/v1/auth/login', [$auth, 'login']);
+$router->post('/api/v1/auth/logout', [$auth, 'logout']);
+$router->get('/api/v1/auth/me', [$auth, 'me']);
 
 // Trips / Deliveries
 $router->post('/api/v1/trips', [$trip, 'create']);

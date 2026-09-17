@@ -13,6 +13,7 @@ if (is_file($envFile)) {
     }
 }
 
+use Rider\Core\Auth;
 use Rider\Core\Request;
 use Rider\Core\Response;
 use Rider\Core\Router;
@@ -25,6 +26,8 @@ $debug = getenv('APP_DEBUG') === 'true';
 ini_set('display_errors', $debug ? '1' : '0');
 error_reporting(E_ALL);
 
+Auth::start();
+
 $router = new Router();
 require __DIR__ . '/../routes/api.php';
 if (is_file(__DIR__ . '/../routes/web.php')) {
@@ -32,7 +35,9 @@ if (is_file(__DIR__ . '/../routes/web.php')) {
 }
 
 try {
-    $router->dispatch(Request::fromGlobals());
+    $request = Request::fromGlobals();
+    $request->user = Auth::currentUser();
+    $router->dispatch($request);
 } catch (\Throwable $e) {
     error_log((string) $e);
     if ($debug) {

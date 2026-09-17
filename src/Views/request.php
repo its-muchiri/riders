@@ -78,12 +78,12 @@
       });
       const data = await res.json();
 
+      if (res.status === 401) {
+        resultEl.innerHTML = 'Please <a href="/login">log in</a> or <a href="/signup">sign up</a> to request a ride.';
+        return;
+      }
       if (!res.ok) {
-        // Expected right now: no auth middleware exists yet (see
-        // src/Core/Request.php), so customer_id resolves to null and the
-        // database rejects the insert — the real, current state of the
-        // app, not a demo bug. See src/Controllers/TripController.php.
-        resultEl.textContent = "Request failed: " + (data.error || "unknown error") + " — expected until auth middleware and a live database are wired up.";
+        resultEl.textContent = "Request failed: " + (data.error || "unknown error");
         return;
       }
 
