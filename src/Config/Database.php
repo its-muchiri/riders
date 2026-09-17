@@ -70,7 +70,13 @@ final class Database
         $user = getenv('PGUSER');
         $pass = getenv('PGPASSWORD');
 
-        $dsn = "pgsql:host={$host};port=5432;dbname={$name};sslmode=require";
+        // Neon's pooler requires the endpoint ID as an explicit libpq
+        // option on PHP builds whose libpq doesn't do SNI-based routing
+        // (this Vercel PHP runtime is one) — see https://neon.tech/sni.
+        // The endpoint ID is simply the first label of the pooler hostname.
+        $endpointId = explode('.', $host, 2)[0];
+
+        $dsn = "pgsql:host={$host};port=5432;dbname={$name};sslmode=require;options=endpoint={$endpointId}";
 
         try {
             return new PDO($dsn, $user, $pass, [
