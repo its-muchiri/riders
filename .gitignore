@@ -6,3 +6,9 @@
 Thumbs.db
 
 .vercel
+.env*
+
+# Local agent-skill tooling installed by `vercel integration add` — not app code
+.agents/
+.claude/
+skills-lock.json

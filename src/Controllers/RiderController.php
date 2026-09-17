@@ -22,10 +22,17 @@ final class RiderController
         $riderId = $request->user['id'] ?? null;
         $isOnline = (bool) $request->input('is_online');
 
-        $stmt = $db->prepare(
-            'INSERT INTO rider_availability (rider_id, is_online, updated_at) VALUES (:rider_id, :is_online, NOW())
-             ON DUPLICATE KEY UPDATE is_online = VALUES(is_online), updated_at = NOW()'
-        );
+        // Vercel's live deployment runs on Postgres (Neon) since Vercel's
+        // Marketplace has no MySQL-compatible option — see
+        // planning/00-portfolio/ui-implementation-plan.md — so this upsert
+        // branches on the active driver; local dev keeps using MySQL's
+        // ON DUPLICATE KEY UPDATE per shared-architecture.md's documented stack.
+        $sql = Database::driver() === 'pgsql'
+            ? 'INSERT INTO rider_availability (rider_id, is_online, updated_at) VALUES (:rider_id, :is_online, NOW())
+               ON CONFLICT (rider_id) DO UPDATE SET is_online = EXCLUDED.is_online, updated_at = NOW()'
+            : 'INSERT INTO rider_availability (rider_id, is_online, updated_at) VALUES (:rider_id, :is_online, NOW())
+               ON DUPLICATE KEY UPDATE is_online = VALUES(is_online), updated_at = NOW()';
+        $stmt = $db->prepare($sql);
         $stmt->execute(['rider_id' => $riderId, 'is_online' => $isOnline]);
 
         Response::json(['rider_id' => $riderId, 'is_online' => $isOnline]);
@@ -36,11 +43,14 @@ final class RiderController
         $db = Database::connection();
         $riderId = $request->user['id'] ?? null;
 
-        $stmt = $db->prepare(
-            'INSERT INTO rider_availability (rider_id, is_online, current_lat, current_lng, last_ping_at, updated_at)
-             VALUES (:rider_id, true, :lat, :lng, NOW(), NOW())
-             ON DUPLICATE KEY UPDATE current_lat = VALUES(current_lat), current_lng = VALUES(current_lng), last_ping_at = NOW(), updated_at = NOW()'
-        );
+        $sql = Database::driver() === 'pgsql'
+            ? 'INSERT INTO rider_availability (rider_id, is_online, current_lat, current_lng, last_ping_at, updated_at)
+               VALUES (:rider_id, true, :lat, :lng, NOW(), NOW())
+               ON CONFLICT (rider_id) DO UPDATE SET current_lat = EXCLUDED.current_lat, current_lng = EXCLUDED.current_lng, last_ping_at = NOW(), updated_at = NOW()'
+            : 'INSERT INTO rider_availability (rider_id, is_online, current_lat, current_lng, last_ping_at, updated_at)
+               VALUES (:rider_id, true, :lat, :lng, NOW(), NOW())
+               ON DUPLICATE KEY UPDATE current_lat = VALUES(current_lat), current_lng = VALUES(current_lng), last_ping_at = NOW(), updated_at = NOW()';
+        $stmt = $db->prepare($sql);
         $stmt->execute([
             'rider_id' => $riderId,
             'lat' => $request->input('lat'),
