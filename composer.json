@@ -1,0 +1,14 @@
+{
+    "name": "artcollect-network/rider-co-ke",
+    "description": "rider.co.ke — real-time dispatch, e-commerce, and retention platform",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Rider\\": "src/"
+        }
+    }
+}

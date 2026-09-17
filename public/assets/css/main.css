@@ -1,0 +1,196 @@
+@import url("tokens.css");
+@import url("reset.css");
+
+/*
+ * rider.co.ke — base layout + shared component styles.
+ * See planning/00-portfolio/design-system.md and artcollect-design-system.md §6.
+ */
+
+body {
+  background: var(--ac-paper);
+  color: var(--ac-ink);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  line-height: 1.15;
+}
+
+.container {
+  max-width: var(--ac-content-max);
+  margin-inline: auto;
+  padding-inline: var(--ac-gutter);
+}
+
+:focus-visible {
+  outline: 3px solid var(--ac-accent);
+  outline-offset: 2px;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ac-space-4);
+  padding-block: var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-paper-deep);
+}
+
+.site-footer {
+  padding-block: var(--ac-space-12);
+  border-top: 1px solid var(--ac-paper-deep);
+  background: var(--ac-paper-deep);
+}
+
+/* ---- Card ---- */
+
+.card {
+  background: var(--ac-paper);
+  border: 1px solid var(--ac-paper-deep);
+  border-radius: var(--ac-radius-control);
+  padding: var(--ac-space-4);
+  transition: transform var(--ac-motion-fast) ease, box-shadow var(--ac-motion-fast) ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 var(--ac-shadow-ink);
+}
+
+.card__meta {
+  display: flex;
+  gap: var(--ac-space-2);
+  color: color-mix(in srgb, var(--ac-ink) 65%, transparent);
+  font-size: 0.875rem;
+}
+
+/* ---- CTA Button ---- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ac-space-2);
+  padding: var(--ac-space-3) var(--ac-space-6);
+  border-radius: var(--ac-radius-control);
+  border: none;
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--ac-motion-fast) ease;
+}
+
+.btn--primary {
+  background: var(--ac-accent);
+  color: var(--ac-accent-contrast);
+}
+
+.btn--secondary {
+  background: transparent;
+  color: var(--ac-accent);
+  border: 2px solid var(--ac-accent);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+/* ---- Modal ---- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ac-space-4);
+}
+
+.modal {
+  background: var(--ac-paper);
+  border-radius: var(--ac-radius-control);
+  padding: var(--ac-space-6);
+  max-width: 32rem;
+  width: 100%;
+}
+
+/* ---- FAB (used by rider.co.ke — high-frequency primary action) ---- */
+
+.fab {
+  position: fixed;
+  bottom: var(--ac-space-6);
+  right: var(--ac-space-6);
+  border-radius: 999px;
+  padding: var(--ac-space-4) var(--ac-space-6);
+  background: var(--ac-accent);
+  color: var(--ac-accent-contrast);
+  box-shadow: 0 4px 0 var(--ac-shadow-ink);
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+
+/* ---- Status Timeline ---- */
+
+.status-timeline {
+  display: flex;
+  gap: var(--ac-space-2);
+  list-style: none;
+  padding: 0;
+  overflow-x: auto;
+}
+
+.status-timeline__step {
+  flex: 1 0 auto;
+  padding: var(--ac-space-2) var(--ac-space-3);
+  border-radius: var(--ac-radius-sticker);
+  background: var(--ac-paper-deep);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.status-timeline__step--done {
+  background: var(--ac-accent);
+  color: var(--ac-accent-contrast);
+}
+
+/* ---- Dispatch Status (real-time — replaces the slot-picker component
+   that scheduled-booking platforms use; see design-system.md's note that
+   rider.co.ke is on-demand, not slot-based) ---- */
+
+.dispatch-status {
+  display: flex;
+  align-items: center;
+  gap: var(--ac-space-3);
+  padding: var(--ac-space-4);
+  border-radius: var(--ac-radius-control);
+  background: var(--ac-paper-deep);
+}
+
+.dispatch-status__pulse {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--ac-accent);
+}
+
+.dispatch-status[data-state="searching"] .dispatch-status__pulse {
+  animation: dispatch-pulse var(--ac-motion-slow) ease-in-out infinite;
+}
+
+@keyframes dispatch-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.4); }
+}
+
+/*
+ * ---- Critical-flow lockout ----
+ * Per artcollect-design-system.md §7: fare payment AND the SOS/safety
+ * flow carry zero decorative motion. This platform extends the rule
+ * beyond payment to the safety surface specifically.
+ */
+.critical-flow * {
+  animation: none !important;
+}

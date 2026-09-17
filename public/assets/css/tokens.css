@@ -1,0 +1,62 @@
+/*
+ * rider.co.ke — design tokens.
+ *
+ * Ported from the real artcollect.co.ke token architecture (see
+ * planning/00-portfolio/artcollect-design-system.md §2). The neutral
+ * canvas/ink pair, spacing scale, radii, and motion durations are adopted
+ * unchanged; the platform accent is set to CORAL (artcollect's "collage"
+ * lane) — chosen for rider.co.ke's energy/motion association.
+ */
+
+:root {
+  --ac-paper: #f5f1e8;
+  --ac-ink: #161311;
+  --ac-paper-deep: #eae2d0;
+
+  /* This platform's accent (coral — artcollect's "collage" lane). */
+  --ac-accent: #e8442e;
+  --ac-accent-contrast: #ffffff;
+
+  --ac-success: #2d6a4f;
+  --ac-warning: #b98900;
+  --ac-danger: #b3261e;
+
+  --ac-highlighter: #f2df4f;
+  --ac-sticker-pink: #f5c6d6;
+  --ac-shadow-ink: rgba(22, 19, 17, 1);
+
+  --ac-space-1: 0.25rem;
+  --ac-space-2: 0.5rem;
+  --ac-space-3: 0.75rem;
+  --ac-space-4: 1rem;
+  --ac-space-6: 1.5rem;
+  --ac-space-8: 2rem;
+  --ac-space-12: 3rem;
+  --ac-space-16: 4rem;
+  --ac-space-24: 6rem;
+  --ac-gutter: clamp(1rem, 4vw, 2.5rem);
+  --ac-measure: 64ch;
+  --ac-content-max: 72rem;
+
+  --ac-radius-scrap: 0.125rem;
+  --ac-radius-sticker: 0.75rem;
+  --ac-radius-control: 0.5rem;
+
+  --ac-motion-fast: 160ms;
+  --ac-motion-base: 320ms;
+  --ac-motion-slow: 640ms;
+
+  --font-display: "Archivo Black", "Arial Black", sans-serif;
+  --font-body: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-hand: "Caveat", cursive;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ac-paper: #17130f;
+    --ac-ink: #f2ecdf;
+    --ac-paper-deep: #252019;
+    --ac-accent: #ff8a75; /* brightened coral, holds contrast on the dark canvas */
+    --ac-shadow-ink: rgba(0, 0, 0, 0.85);
+  }
+}
