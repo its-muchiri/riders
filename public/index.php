@@ -14,9 +14,29 @@ if (is_file($envFile)) {
 }
 
 use Rider\Core\Request;
+use Rider\Core\Response;
 use Rider\Core\Router;
+
+// Off by default so an unconfigured environment (e.g. a fresh Vercel deploy
+// with no database wired yet) never leaks internal file paths/stack traces
+// to a public response; set APP_DEBUG=true locally (see .env.example) to
+// see real errors while developing.
+$debug = getenv('APP_DEBUG') === 'true';
+ini_set('display_errors', $debug ? '1' : '0');
+error_reporting(E_ALL);
 
 $router = new Router();
 require __DIR__ . '/../routes/api.php';
+if (is_file(__DIR__ . '/../routes/web.php')) {
+    require __DIR__ . '/../routes/web.php';
+}
 
-$router->dispatch(Request::fromGlobals());
+try {
+    $router->dispatch(Request::fromGlobals());
+} catch (\Throwable $e) {
+    error_log((string) $e);
+    if ($debug) {
+        throw $e;
+    }
+    Response::error('Internal server error — this environment may not have a database connected yet.', 500);
+}
