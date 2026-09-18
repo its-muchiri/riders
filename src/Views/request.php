@@ -56,10 +56,37 @@
     );
   });
 
+  // Falls back to geocoding a typed address via /api/v1/geocode (OpenStreetMap
+  // Nominatim, proxied server-side — see GeocodeController) when the caller
+  // didn't already have coordinates. Without this, pickup/destination stay
+  // at (0,0) and TripController::location's distance/ETA math is silently
+  // wrong — see MVP_STATUS.md checklist item 3.
+  async function geocode(address) {
+    if (!address) return null;
+    try {
+      const res = await fetch(`/api/v1/geocode?q=${encodeURIComponent(address)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.found ? { lat: data.lat, lng: data.lng } : null;
+    } catch {
+      return null;
+    }
+  }
+
   document.getElementById("trip-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
     const resultEl = document.getElementById("request-result");
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+
+    submitBtn.disabled = true;
+    resultEl.textContent = "Locating pickup and destination…";
+
+    const pickupAddress = formData.get("pickup_address");
+    const destinationAddress = formData.get("destination_address");
+
+    const resolvedPickup = pickup ?? await geocode(pickupAddress);
+    const resolvedDestination = await geocode(destinationAddress);
 
     try {
       const res = await fetch("/api/v1/trips", {
@@ -67,12 +94,12 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           trip_type: formData.get("trip_type"),
-          pickup_address: formData.get("pickup_address"),
-          pickup_lat: pickup?.lat ?? 0,
-          pickup_lng: pickup?.lng ?? 0,
-          destination_address: formData.get("destination_address"),
-          destination_lat: 0,
-          destination_lng: 0,
+          pickup_address: pickupAddress,
+          pickup_lat: resolvedPickup?.lat ?? 0,
+          pickup_lng: resolvedPickup?.lng ?? 0,
+          destination_address: destinationAddress,
+          destination_lat: resolvedDestination?.lat ?? 0,
+          destination_lng: resolvedDestination?.lng ?? 0,
           recipient_phone_number: formData.get("recipient_phone_number") || null,
         }),
       });
@@ -93,6 +120,8 @@
       resultEl.innerHTML = `Trip #${data.id} requested (status: ${data.status}).${dispatchNote} <a href="/trips/${data.id}">Track it</a>`;
     } catch (e) {
       resultEl.textContent = "Network error: " + e.message;
+    } finally {
+      submitBtn.disabled = false;
     }
   });
 </script>

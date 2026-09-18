@@ -74,21 +74,31 @@ final class RiderController
 
         // If this ping is for an active trip, also record it in trip_pings
         // for live tracking / post-incident investigation — see
-        // database/schema.sql's retention-policy note on that table.
+        // database/schema.sql's retention-policy note on that table. Only
+        // trusted once verified as this rider's own active trip, so a
+        // rider can't write pings into a trip they're not assigned to.
         $tripId = $request->input('trip_id');
         if ($tripId) {
-            $pingStmt = $db->prepare(
-                'INSERT INTO trip_pings (trip_id, rider_id, lat, lng, speed_kmh, heading_degrees, recorded_at)
-                 VALUES (:trip_id, :rider_id, :lat, :lng, :speed, :heading, NOW())'
+            $tripStmt = $db->prepare(
+                "SELECT 1 FROM rider_trips WHERE id = :trip_id AND rider_id = :rider_id
+                 AND status IN ('matched', 'rider_en_route', 'in_progress')"
             );
-            $pingStmt->execute([
-                'trip_id' => $tripId,
-                'rider_id' => $riderId,
-                'lat' => $request->input('lat'),
-                'lng' => $request->input('lng'),
-                'speed' => $request->input('speed_kmh'),
-                'heading' => $request->input('heading_degrees'),
-            ]);
+            $tripStmt->execute(['trip_id' => $tripId, 'rider_id' => $riderId]);
+
+            if ($tripStmt->fetch()) {
+                $pingStmt = $db->prepare(
+                    'INSERT INTO trip_pings (trip_id, rider_id, lat, lng, speed_kmh, heading_degrees, recorded_at)
+                     VALUES (:trip_id, :rider_id, :lat, :lng, :speed, :heading, NOW())'
+                );
+                $pingStmt->execute([
+                    'trip_id' => $tripId,
+                    'rider_id' => $riderId,
+                    'lat' => $request->input('lat'),
+                    'lng' => $request->input('lng'),
+                    'speed' => $request->input('speed_kmh'),
+                    'heading' => $request->input('heading_degrees'),
+                ]);
+            }
         }
 
         Response::json(['status' => 'recorded']);

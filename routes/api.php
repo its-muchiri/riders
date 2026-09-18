@@ -9,6 +9,7 @@
 
 use Rider\Controllers\AuthController;
 use Rider\Controllers\DisputeController;
+use Rider\Controllers\GeocodeController;
 use Rider\Controllers\LoyaltyController;
 use Rider\Controllers\OnboardingController;
 use Rider\Controllers\PaymentController;
@@ -30,6 +31,7 @@ $subscription = new SubscriptionController();
 $loyalty = new LoyaltyController();
 $savedPlaces = new SavedPlacesController();
 $auth = new AuthController();
+$geocode = new GeocodeController();
 
 // Auth (shared identity/auth module — see MVP_STATUS.md checklist item 1)
 $router->post('/api/v1/auth/register', [$auth, 'register']);
@@ -40,7 +42,9 @@ $router->get('/api/v1/auth/me', [$auth, 'me']);
 // Trips / Deliveries
 $router->post('/api/v1/trips', [$trip, 'create']);
 $router->get('/api/v1/trips/{id}', [$trip, 'show']);
+$router->get('/api/v1/trips/{id}/location', [$trip, 'location']);
 $router->get('/api/v1/trips/{id}/ping-stream', [$trip, 'pingStream']);
+$router->get('/api/v1/geocode', [$geocode, 'search']);
 $router->patch('/api/v1/trips/{id}/accept', [$trip, 'accept']);
 $router->patch('/api/v1/trips/{id}/decline', [$trip, 'decline']);
 $router->patch('/api/v1/trips/{id}/status', [$trip, 'updateStatus']);

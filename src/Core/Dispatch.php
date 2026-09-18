@@ -164,4 +164,22 @@ final class Dispatch
 
         return $stmt->fetch() ? 'offer_sent' : null;
     }
+
+    /**
+     * Plain-PHP Haversine distance in km, for computing distance/ETA against
+     * a single already-fetched pair of points (e.g. TripController::location)
+     * — as opposed to findNearestAvailableRiders()'s SQL version, which
+     * needs to rank many candidate rows in the database itself.
+     */
+    public static function haversineKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthRadiusKm = 6371.0;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return $earthRadiusKm * 2 * asin(min(1, sqrt($a)));
+    }
 }
