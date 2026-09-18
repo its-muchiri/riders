@@ -52,6 +52,9 @@ $router->post('/api/v1/trips/{id}/proof-of-delivery', [$trip, 'proofOfDelivery']
 $router->get('/api/v1/riders/nearby', [$trip, 'nearbyRiders']);
 $router->patch('/api/v1/riders/me/availability', [$rider, 'setAvailability']);
 $router->post('/api/v1/riders/me/location-ping', [$rider, 'locationPing']);
+// /riders/me/offers must be registered before the /riders/{id} wildcard
+// below, for the same route-ordering reason documented in routes/web.php.
+$router->get('/api/v1/riders/me/offers', [$rider, 'myOffers']);
 $router->get('/api/v1/riders/{id}', [$rider, 'profile']);
 
 // Payments

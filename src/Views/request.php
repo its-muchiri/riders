@@ -87,7 +87,10 @@
         return;
       }
 
-      resultEl.innerHTML = `Trip #${data.id} requested (status: ${data.status}). <a href="/trips/${data.id}">Track it</a>`;
+      const dispatchNote = data.dispatch_status === "no_riders_available"
+        ? " No riders are available near you right now — we'll keep looking."
+        : " A nearby rider has been offered your trip.";
+      resultEl.innerHTML = `Trip #${data.id} requested (status: ${data.status}).${dispatchNote} <a href="/trips/${data.id}">Track it</a>`;
     } catch (e) {
       resultEl.textContent = "Network error: " + e.message;
     }

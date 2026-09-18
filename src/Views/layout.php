@@ -25,6 +25,9 @@ $isCritical = $critical ?? false;
     <nav aria-label="Primary" style="display:flex; align-items:center; gap: var(--ac-space-3);">
       <a href="/request" class="btn btn--secondary">Request a ride</a>
       <?php if (!empty($currentUser)): ?>
+        <?php if (($currentUser['account_type'] ?? null) === 'provider'): ?>
+          <a href="/riders/dashboard" class="btn btn--secondary">Rider dashboard</a>
+        <?php endif; ?>
         <span class="card__meta">Hi, <?= \Rider\Core\View::e($currentUser['full_name']) ?></span>
         <form method="post" action="/logout" style="display:inline;">
           <button type="submit" class="btn btn--secondary">Log out</button>

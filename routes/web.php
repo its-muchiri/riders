@@ -25,6 +25,7 @@ $router->get('/trips/{id}/sos', [$page, 'sos']);
 // below, since Router::dispatch matches routes in registration order and
 // {id} would otherwise swallow the literal "onboard" segment.
 $router->get('/riders/onboard', [$page, 'riderOnboard']);
+$router->get('/riders/dashboard', [$page, 'riderDashboard']);
 $router->get('/riders/{id}', [$page, 'riderProfile']);
 
 $router->get('/signup', [$auth, 'showSignup']);

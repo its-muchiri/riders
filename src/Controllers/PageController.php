@@ -128,6 +128,34 @@ final class PageController
         ]);
     }
 
+    public function riderDashboard(Request $request): void
+    {
+        // Rider-facing counterpart of request.php/trip-status.php — lets an
+        // approved rider go online and accept/decline dispatch offers (see
+        // RiderController::myOffers and Rider\Core\Dispatch). Requires a
+        // logged-in provider account; an unapproved rider sees a message
+        // instead of the online toggle, since going online while
+        // status != 'active' would bypass the KYC gate user-flows.md §2
+        // step 5 requires.
+        if (Auth::id() === null) {
+            header('Location: /login', true, 303);
+            return;
+        }
+        if (($request->user['account_type'] ?? null) !== 'provider') {
+            View::render('rider-dashboard', [
+                'title' => 'Rider dashboard',
+                'notARider' => true,
+            ]);
+            return;
+        }
+
+        View::render('rider-dashboard', [
+            'title' => 'Rider dashboard',
+            'notARider' => false,
+            'status' => $request->user['status'] ?? 'pending_verification',
+        ]);
+    }
+
     public function riderProfile(Request $request): void
     {
         $riderId = (int) $request->params['id'];

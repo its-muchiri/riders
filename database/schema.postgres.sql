@@ -190,6 +190,24 @@ CREATE TABLE trip_pings (
 );
 CREATE INDEX idx_trip_pings_trip ON trip_pings(trip_id, recorded_at);
 
+-- Tracks the offer-cascade dispatch flow referenced in
+-- planning/02-rider-co-ke/api-endpoints.md's accept/decline endpoints and
+-- open-questions.md #2 (30s offer window, cascading to next-nearest rider
+-- on decline/timeout). Not in the original database-schema.md — added as
+-- the implementation detail needed to make that cascade logic real.
+CREATE TABLE trip_dispatch_offers (
+    id BIGSERIAL PRIMARY KEY,
+    trip_id BIGINT NOT NULL REFERENCES rider_trips(id),
+    rider_id BIGINT NOT NULL REFERENCES users(id),
+    status VARCHAR(20) NOT NULL DEFAULT 'offered' CHECK (status IN ('offered', 'accepted', 'declined', 'expired', 'superseded')),
+    distance_km DECIMAL(6,2) NULL,
+    offered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    responded_at TIMESTAMP NULL,
+    expires_at TIMESTAMP NOT NULL
+);
+CREATE INDEX idx_dispatch_offers_trip ON trip_dispatch_offers(trip_id);
+CREATE INDEX idx_dispatch_offers_rider_status ON trip_dispatch_offers(rider_id, status);
+
 CREATE TABLE rider_vehicle_documents (
     id BIGSERIAL PRIMARY KEY,
     rider_id BIGINT NOT NULL REFERENCES users(id),

@@ -4,15 +4,15 @@ namespace Rider\Controllers;
 
 use Rider\Config\Database;
 use Rider\Core\Auth;
+use Rider\Core\Dispatch;
 use Rider\Core\Request;
 use Rider\Core\Response;
 
 /**
  * Maps to the "Bookings (Trips/Deliveries)" and "Availability" groups in
  * planning/02-rider-co-ke/api-endpoints.md. Real-time dispatch matching
- * (nearest-rider lookup, offer cascade on decline/timeout) is stubbed —
- * see planning/00-portfolio/shared-architecture.md's Booking & Availability
- * Engine (real-time dispatch mode) for what this should eventually call into.
+ * (nearest-rider lookup, offer cascade on decline/timeout) lives in
+ * Rider\Core\Dispatch — see that class for the matching/cascade design.
  */
 final class TripController
 {
@@ -25,9 +25,9 @@ final class TripController
 
         $db = Database::connection();
 
-        // TODO: dispatch to nearest available rider via rider_availability
-        // (see database/schema.sql), per planning/02-rider-co-ke/user-flows.md
-        // step 3, with the offer-cascade timing from open-questions.md #2.
+        $pickupLat = (float) $request->input('pickup_lat');
+        $pickupLng = (float) $request->input('pickup_lng');
+
         $stmt = $db->prepare(
             'INSERT INTO rider_trips
                 (customer_id, trip_type, status, pickup_lat, pickup_lng, pickup_address,
@@ -42,8 +42,8 @@ final class TripController
         $stmt->execute([
             'customer_id' => $user['id'],
             'trip_type' => $request->input('trip_type'),
-            'pickup_lat' => $request->input('pickup_lat'),
-            'pickup_lng' => $request->input('pickup_lng'),
+            'pickup_lat' => $pickupLat,
+            'pickup_lng' => $pickupLng,
             'pickup_address' => $request->input('pickup_address'),
             'destination_lat' => $request->input('destination_lat'),
             'destination_lng' => $request->input('destination_lng'),
@@ -55,20 +55,34 @@ final class TripController
             'estimated_fare' => $request->input('estimated_fare', 0),
         ]);
 
-        Response::json(['id' => (int) $db->lastInsertId(), 'status' => 'requested'], 201);
+        $tripId = (int) $db->lastInsertId();
+
+        $offer = Dispatch::dispatchToNextRider($db, $tripId, $pickupLat, $pickupLng);
+
+        Response::json([
+            'id' => $tripId,
+            'status' => 'requested',
+            'dispatch_status' => $offer ? 'offer_sent' : 'no_riders_available',
+        ], 201);
     }
 
     public function show(Request $request): void
     {
         $db = Database::connection();
+        $tripId = (int) $request->params['id'];
+
+        Dispatch::sweepAndCascade($db, $tripId);
+
         $stmt = $db->prepare('SELECT * FROM rider_trips WHERE id = :id');
-        $stmt->execute(['id' => $request->params['id']]);
+        $stmt->execute(['id' => $tripId]);
         $trip = $stmt->fetch();
 
         if (!$trip) {
             Response::notFound('Trip not found');
             return;
         }
+
+        $trip['dispatch_status'] = Dispatch::currentDispatchStatus($db, $tripId);
 
         Response::json($trip);
     }
@@ -78,6 +92,8 @@ final class TripController
         // TODO: implement as an SSE stream — see shared-architecture.md's
         // "Real-Time Update Strategy" (SSE, not WebSockets, per the portfolio
         // decision). Polls trip_pings for this trip and flushes new rows.
+        // Tracked under checklist item 3 (live GPS tracking), not this
+        // dispatch-matching item.
         header('Content-Type: text/event-stream');
         header('Cache-Control: no-cache');
         echo "event: ping\ndata: {}\n\n";
@@ -91,19 +107,91 @@ final class TripController
         }
 
         $db = Database::connection();
-        $stmt = $db->prepare(
-            'UPDATE rider_trips SET rider_id = :rider_id, status = \'matched\', matched_at = NOW(), updated_at = NOW() WHERE id = :id'
-        );
-        $stmt->execute(['rider_id' => $user['id'], 'id' => $request->params['id']]);
+        $tripId = (int) $request->params['id'];
+        $riderId = (int) $user['id'];
 
-        Response::json(['id' => (int) $request->params['id'], 'status' => 'matched']);
+        Dispatch::sweepAndCascade($db, $tripId);
+
+        $offerStmt = $db->prepare(
+            "SELECT * FROM trip_dispatch_offers WHERE trip_id = :trip_id AND rider_id = :rider_id AND status = 'offered'"
+        );
+        $offerStmt->execute(['trip_id' => $tripId, 'rider_id' => $riderId]);
+        $offer = $offerStmt->fetch();
+
+        if (!$offer) {
+            Response::error('No active offer for this trip — it may have expired or already been taken.', 409);
+            return;
+        }
+
+        // Guard against a double-accept race (two riders responding to
+        // overlapping offers): only succeeds while the trip is still
+        // 'requested', and only the first UPDATE to land wins.
+        $updateStmt = $db->prepare(
+            "UPDATE rider_trips SET rider_id = :rider_id, status = 'matched', matched_at = NOW(), updated_at = NOW()
+             WHERE id = :id AND status = 'requested'"
+        );
+        $updateStmt->execute(['rider_id' => $riderId, 'id' => $tripId]);
+
+        if ($updateStmt->rowCount() === 0) {
+            Response::error('This trip has already been matched to another rider.', 409);
+            return;
+        }
+
+        $acceptStmt = $db->prepare(
+            "UPDATE trip_dispatch_offers SET status = 'accepted', responded_at = NOW() WHERE id = :id"
+        );
+        $acceptStmt->execute(['id' => $offer['id']]);
+
+        $supersedeStmt = $db->prepare(
+            "UPDATE trip_dispatch_offers SET status = 'superseded', responded_at = NOW()
+             WHERE trip_id = :trip_id AND status = 'offered' AND id != :offer_id"
+        );
+        $supersedeStmt->execute(['trip_id' => $tripId, 'offer_id' => $offer['id']]);
+
+        Response::json(['id' => $tripId, 'status' => 'matched']);
     }
 
     public function decline(Request $request): void
     {
-        // TODO: cascade the offer to the next-nearest rider — see
-        // open-questions.md #2 for the (unresolved) cascade timing.
-        Response::json(['id' => (int) $request->params['id'], 'status' => 'offer_declined']);
+        $user = Auth::requireUser($request);
+        if (!$user) {
+            return;
+        }
+
+        $db = Database::connection();
+        $tripId = (int) $request->params['id'];
+        $riderId = (int) $user['id'];
+
+        $offerStmt = $db->prepare(
+            "SELECT * FROM trip_dispatch_offers WHERE trip_id = :trip_id AND rider_id = :rider_id AND status = 'offered'"
+        );
+        $offerStmt->execute(['trip_id' => $tripId, 'rider_id' => $riderId]);
+        $offer = $offerStmt->fetch();
+
+        if (!$offer) {
+            Response::error('No active offer for this trip.', 409);
+            return;
+        }
+
+        $declineStmt = $db->prepare(
+            "UPDATE trip_dispatch_offers SET status = 'declined', responded_at = NOW() WHERE id = :id"
+        );
+        $declineStmt->execute(['id' => $offer['id']]);
+
+        $tripStmt = $db->prepare('SELECT pickup_lat, pickup_lng, status FROM rider_trips WHERE id = :id');
+        $tripStmt->execute(['id' => $tripId]);
+        $trip = $tripStmt->fetch();
+
+        $nextOffer = null;
+        if ($trip && $trip['status'] === 'requested') {
+            $nextOffer = Dispatch::dispatchToNextRider($db, $tripId, (float) $trip['pickup_lat'], (float) $trip['pickup_lng']);
+        }
+
+        Response::json([
+            'id' => $tripId,
+            'status' => 'offer_declined',
+            'dispatch_status' => $nextOffer ? 'offer_sent' : 'no_riders_available',
+        ]);
     }
 
     public function updateStatus(Request $request): void
@@ -138,10 +226,17 @@ final class TripController
     public function cancel(Request $request): void
     {
         $db = Database::connection();
-        $stmt = $db->prepare('UPDATE rider_trips SET status = \'cancelled\', updated_at = NOW() WHERE id = :id');
-        $stmt->execute(['id' => $request->params['id']]);
+        $tripId = (int) $request->params['id'];
 
-        Response::json(['id' => (int) $request->params['id'], 'status' => 'cancelled']);
+        $stmt = $db->prepare('UPDATE rider_trips SET status = \'cancelled\', updated_at = NOW() WHERE id = :id');
+        $stmt->execute(['id' => $tripId]);
+
+        $cancelOffersStmt = $db->prepare(
+            "UPDATE trip_dispatch_offers SET status = 'superseded', responded_at = NOW() WHERE trip_id = :trip_id AND status = 'offered'"
+        );
+        $cancelOffersStmt->execute(['trip_id' => $tripId]);
+
+        Response::json(['id' => $tripId, 'status' => 'cancelled']);
     }
 
     public function sos(Request $request): void
@@ -173,8 +268,18 @@ final class TripController
 
     public function nearbyRiders(Request $request): void
     {
-        // TODO: proximity query against rider_availability using the
-        // shared geolocation service — see shared-architecture.md.
-        Response::json(['riders' => []]);
+        $user = Auth::requireUser($request);
+        if (!$user) {
+            return;
+        }
+
+        $lat = (float) $request->input('lat');
+        $lng = (float) $request->input('lng');
+        $limit = (int) $request->input('limit', 10);
+
+        $db = Database::connection();
+        $riders = Dispatch::findNearestAvailableRiders($db, $lat, $lng, [], $limit);
+
+        Response::json(['riders' => $riders]);
     }
 }
