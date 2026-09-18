@@ -67,6 +67,9 @@ $router->get('/api/v1/riders/{id}', [$rider, 'profile']);
 // Payments
 $router->post('/api/v1/payments/mpesa/stk-push', [$payment, 'stkPush']);
 $router->post('/api/v1/payments/mpesa/callback', [$payment, 'mpesaCallback']);
+$router->post('/api/v1/payments/mpesa/b2c-result', [$payment, 'b2cResult']);
+$router->post('/api/v1/payments/mpesa/b2c-timeout', [$payment, 'b2cTimeout']);
+$router->get('/api/v1/trips/{id}/payment', [$payment, 'tripPayment']);
 $router->post('/api/v1/payments/card', [$payment, 'card']);
 $router->get('/api/v1/riders/me/earnings', [$payment, 'myEarnings']);
 

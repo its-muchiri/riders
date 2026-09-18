@@ -24,6 +24,10 @@ use Rider\Core\View;
     <p class="card__meta">Go online to start receiving trip offers.</p>
   </div>
 
+  <h2 style="margin-top: var(--ac-space-8);">Earnings</h2>
+  <div id="earnings-totals" class="card__meta" style="margin-top: var(--ac-space-2);">Loading earnings…</div>
+  <ul id="earnings-list" style="list-style:none; padding:0; margin-top: var(--ac-space-3); display:flex; flex-direction:column; gap: var(--ac-space-2);"></ul>
+
   <script type="module">
     const toggleBtn = document.getElementById('availability-toggle');
     const statusEl = document.getElementById('availability-status');
@@ -147,6 +151,35 @@ use Rider\Core\View;
       pingTimer = null;
       locationNote.textContent = '';
     }
+
+    const kes = (n) => 'KES ' + Number(n).toLocaleString('en-KE', { maximumFractionDigits: 2 });
+    const PAYOUT_LABEL = { completed: 'sent to M-Pesa', pending: 'pending', failed: 'failed — contact support' };
+
+    async function loadEarnings() {
+      const totalsEl = document.getElementById('earnings-totals');
+      const listEl = document.getElementById('earnings-list');
+      try {
+        const res = await fetch('/api/v1/riders/me/earnings');
+        if (!res.ok) { totalsEl.textContent = 'Earnings are unavailable right now.'; return; }
+        const data = await res.json();
+        totalsEl.textContent = `Paid out: ${kes(data.totals.paid_out)} · Pending payout: ${kes(data.totals.pending_payout)} · Commission deducted: ${kes(data.totals.commission_deducted)}`;
+        listEl.innerHTML = '';
+        const payouts = data.entries.filter((e) => e.type === 'payout');
+        if (!payouts.length) {
+          listEl.innerHTML = '<li class="card__meta">No earnings yet — complete a trip to get paid.</li>';
+          return;
+        }
+        for (const entry of payouts) {
+          const li = document.createElement('li');
+          li.className = 'card__meta';
+          li.textContent = `Trip #${entry.trip_id} — ${kes(entry.amount)} (${PAYOUT_LABEL[entry.status] ?? entry.status})`;
+          listEl.appendChild(li);
+        }
+      } catch {
+        totalsEl.textContent = 'Earnings are unavailable right now.';
+      }
+    }
+    loadEarnings();
 
     toggleBtn.addEventListener('click', async () => {
       const nextOnline = !isOnline;

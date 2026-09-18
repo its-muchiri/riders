@@ -98,6 +98,11 @@ CREATE TABLE commission_rules (
     effective_to TIMESTAMP NULL
 );
 
+-- Default standard-tier commission for completed trips: prd.md proposes 15-25% and
+-- flags it as needing stakeholder input; 18% is the assumed midpoint (MVP_STATUS.md).
+INSERT INTO commission_rules (platform, category, commission_type, value, effective_from)
+VALUES ('rider', 'rider_trip', 'percentage', 18.00, CURRENT_TIMESTAMP);
+
 CREATE TABLE kyc_documents (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id),

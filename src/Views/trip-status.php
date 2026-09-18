@@ -32,6 +32,19 @@ use Rider\Core\View;
     <p id="rider-location-note" class="card__meta" style="margin-top: var(--ac-space-2);"></p>
   </div>
 
+  <div id="payment-panel" class="card" hidden style="max-width: 32rem; margin-top: var(--ac-space-6); padding: var(--ac-space-4);">
+    <h2 style="margin-top:0;">Payment</h2>
+    <p id="payment-summary" class="card__meta"></p>
+    <form id="payment-form" style="display:none; flex-direction:column; gap: var(--ac-space-3); margin-top: var(--ac-space-3);">
+      <label>
+        M-Pesa phone number
+        <input type="tel" id="payment-phone" required placeholder="07XXXXXXXX" value="<?= View::e(Auth::currentUser()['phone_number'] ?? '') ?>" style="display:block; width:100%; padding: var(--ac-space-2); margin-top: var(--ac-space-1);">
+      </label>
+      <button type="submit" class="btn btn--primary" id="pay-btn"></button>
+    </form>
+    <p id="payment-note" class="card__meta" style="margin-top: var(--ac-space-2);" role="status"></p>
+  </div>
+
   <a href="/trips/<?= $tripId ?>/sos" class="btn btn--secondary" style="margin-top: var(--ac-space-6); border-color: var(--ac-danger); color: var(--ac-danger);">Safety / SOS</a>
 
   <script type="module">
@@ -66,6 +79,13 @@ use Rider\Core\View;
     const riderControls = document.getElementById("rider-controls");
     const advanceBtn = document.getElementById("advance-status-btn");
     const riderLocationNote = document.getElementById("rider-location-note");
+    const isCustomer = currentUserId !== null && currentUserId === tripCustomerId;
+    const paymentPanel = document.getElementById("payment-panel");
+    const paymentSummary = document.getElementById("payment-summary");
+    const paymentForm = document.getElementById("payment-form");
+    const paymentPhone = document.getElementById("payment-phone");
+    const payBtn = document.getElementById("pay-btn");
+    const paymentNote = document.getElementById("payment-note");
 
     // --- Rider side: share live location + advance trip status ---
 
@@ -204,6 +224,102 @@ use Rider\Core\View;
       }
     }
 
+    // --- Payment (post-trip M-Pesa STK Push; see PaymentController) ---
+
+    let paymentTimer = null;
+    const kes = (n) => "KES " + Number(n).toLocaleString("en-KE", { maximumFractionDigits: 2 });
+
+    function stopPaymentPolling() {
+      if (paymentTimer) clearInterval(paymentTimer);
+      paymentTimer = null;
+    }
+
+    function startPaymentPolling() {
+      if (!paymentTimer) paymentTimer = setInterval(loadPayment, 4000);
+    }
+
+    function renderPayment(p) {
+      paymentPanel.hidden = false;
+      paymentForm.style.display = "none";
+      paymentNote.textContent = "";
+
+      if (p.state === "paid") {
+        stopPaymentPolling();
+        if (isCustomer) {
+          paymentSummary.textContent = `Paid ${kes(p.amount_due)} via M-Pesa. Thank you for riding with us.`;
+        } else {
+          const payout = p.payout;
+          paymentSummary.textContent = `Customer paid ${kes(p.amount_due)}.`;
+          paymentNote.textContent = payout
+            ? `Your payout: ${kes(payout.amount)} (${payout.status === "completed" ? "sent to your M-Pesa" : "pending — sent to your M-Pesa shortly"}).`
+            : "";
+        }
+        return;
+      }
+
+      if (p.state === "pending") {
+        paymentSummary.textContent = `Amount due: ${kes(p.amount_due)}`;
+        paymentNote.textContent = isCustomer
+          ? "M-Pesa prompt sent — enter your PIN on your phone to complete payment. This page updates automatically."
+          : "Waiting for the customer to complete their M-Pesa payment…";
+        startPaymentPolling();
+        return;
+      }
+
+      // unpaid or failed
+      paymentSummary.textContent = `Amount due: ${kes(p.amount_due)}`;
+      if (isCustomer) {
+        paymentForm.style.display = "flex";
+        payBtn.textContent = `Pay ${kes(p.amount_due)} with M-Pesa`;
+        payBtn.disabled = false;
+        if (p.state === "failed") {
+          paymentNote.textContent = "The last M-Pesa payment wasn't completed (cancelled, timed out, or declined). You can try again.";
+        }
+        stopPaymentPolling();
+      } else {
+        paymentNote.textContent = "Waiting for the customer to pay…";
+        startPaymentPolling();
+      }
+    }
+
+    async function loadPayment() {
+      if (!isCustomer && !isRider) return;
+      try {
+        const res = await fetch(`/api/v1/trips/${tripId}/payment`);
+        if (!res.ok) return;
+        renderPayment(await res.json());
+      } catch {
+        // Network hiccup — the next poll (or page reload) retries.
+      }
+    }
+
+    paymentForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      payBtn.disabled = true;
+      paymentNote.textContent = "Sending M-Pesa prompt…";
+      try {
+        const res = await fetch("/api/v1/payments/mpesa/stk-push", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trip_id: tripId, phone: paymentPhone.value }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          paymentNote.textContent = data.error || "Could not start the M-Pesa payment.";
+          payBtn.disabled = false;
+          // 409 means a prompt is already out (or it's already paid) — reflect the real state.
+          if (res.status === 409) loadPayment();
+          return;
+        }
+        paymentForm.style.display = "none";
+        paymentNote.textContent = data.customer_message;
+        startPaymentPolling();
+      } catch (e) {
+        paymentNote.textContent = "Network error — check your connection and try again.";
+        payBtn.disabled = false;
+      }
+    });
+
     // --- Shared status rendering ---
 
     function render(status, dispatchStatus) {
@@ -225,6 +341,7 @@ use Rider\Core\View;
 
       updateRiderControls(status);
       updateLocationPolling(status);
+      if (status === "completed") loadPayment();
     }
 
     render(initialStatus, null);
@@ -269,6 +386,7 @@ use Rider\Core\View;
       clearInterval(pollTimer);
       if (locationPollTimer) clearInterval(locationPollTimer);
       stopRiderLocationSharing();
+      stopPaymentPolling();
     });
   </script>
 <?php endif; ?>

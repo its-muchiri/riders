@@ -446,6 +446,11 @@ final class TripController
         if ($timestampColumn) {
             $sql .= ", {$timestampColumn} = NOW()";
         }
+        if ($status === 'completed') {
+            // The fare is fixed upfront (prd.md "Upfront Transparent Pricing") — the
+            // final fare is the quoted estimate, which PaymentController charges.
+            $sql .= ', final_fare = COALESCE(final_fare, estimated_fare)';
+        }
         $sql .= ' WHERE id = :id AND status = :current_status';
 
         $stmt = $db->prepare($sql);
