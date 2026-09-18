@@ -5,6 +5,7 @@ namespace Rider\Controllers;
 use Rider\Config\Database;
 use Rider\Core\Auth;
 use Rider\Core\Dispatch;
+use Rider\Core\Fare;
 use Rider\Core\Request;
 use Rider\Core\Response;
 
@@ -16,12 +17,37 @@ use Rider\Core\Response;
  */
 final class TripController
 {
-    // Assumed average moving speed for a boda-boda/car in Nairobi-style
-    // urban traffic, used only for the ETA estimate below. No
-    // directions/traffic API is wired in (MAPS_PROVIDER_API_KEY is
-    // unconfigured — see .env.example) so this is a flat assumption rather
-    // than a routed ETA; flagged in MVP_STATUS.md's known issues.
-    private const ASSUMED_SPEED_KMH = 25.0;
+    /**
+     * Upfront transparent price estimate (MVP_STATUS.md checklist item 4 /
+     * prd.md "Upfront Transparent Pricing"), called by request.php after
+     * geocoding pickup/destination and before the customer confirms —
+     * matches user-flows.md step 2 ("sees an upfront fixed-price estimate
+     * ... before" step 3's confirm). See Rider\Core\Fare for the rate
+     * card and surge assumptions.
+     */
+    public function estimateFare(Request $request): void
+    {
+        $tripType = (string) $request->input('trip_type', 'passenger_motorcycle');
+        if (!Fare::isValidTripType($tripType)) {
+            Response::error('Invalid trip_type.', 422);
+            return;
+        }
+
+        $pickupLat = (float) $request->input('pickup_lat');
+        $pickupLng = (float) $request->input('pickup_lng');
+        $destinationLat = (float) $request->input('destination_lat');
+        $destinationLng = (float) $request->input('destination_lng');
+
+        if ((abs($pickupLat) < 0.0001 && abs($pickupLng) < 0.0001)
+            || (abs($destinationLat) < 0.0001 && abs($destinationLng) < 0.0001)) {
+            Response::error('Pickup and destination must be resolved to real coordinates first.', 422);
+            return;
+        }
+
+        $estimate = Fare::estimate($tripType, $pickupLat, $pickupLng, $destinationLat, $destinationLng);
+
+        Response::json($estimate);
+    }
 
     public function create(Request $request): void
     {
@@ -30,10 +56,24 @@ final class TripController
             return;
         }
 
+        $tripType = (string) $request->input('trip_type', 'passenger_motorcycle');
+        if (!Fare::isValidTripType($tripType)) {
+            Response::error('Invalid trip_type.', 422);
+            return;
+        }
+
         $db = Database::connection();
 
         $pickupLat = (float) $request->input('pickup_lat');
         $pickupLng = (float) $request->input('pickup_lng');
+        $destinationLat = (float) $request->input('destination_lat');
+        $destinationLng = (float) $request->input('destination_lng');
+
+        // estimated_fare is always computed server-side from the rate card —
+        // a client-sent value is never trusted (previously TripController
+        // took whatever estimated_fare the client sent, defaulting to 0;
+        // logged as a known issue in MVP_STATUS.md until this pass).
+        $estimate = Fare::estimate($tripType, $pickupLat, $pickupLng, $destinationLat, $destinationLng);
 
         $stmt = $db->prepare(
             'INSERT INTO rider_trips
@@ -48,18 +88,18 @@ final class TripController
 
         $stmt->execute([
             'customer_id' => $user['id'],
-            'trip_type' => $request->input('trip_type'),
+            'trip_type' => $tripType,
             'pickup_lat' => $pickupLat,
             'pickup_lng' => $pickupLng,
             'pickup_address' => $request->input('pickup_address'),
-            'destination_lat' => $request->input('destination_lat'),
-            'destination_lng' => $request->input('destination_lng'),
+            'destination_lat' => $destinationLat,
+            'destination_lng' => $destinationLng,
             'destination_address' => $request->input('destination_address'),
             'recipient_phone_number' => $request->input('recipient_phone_number'),
-            'distance_km' => $request->input('estimated_distance_km', 0),
-            'duration_min' => $request->input('estimated_duration_min', 0),
-            'surge' => $request->input('surge_multiplier', 1.0),
-            'estimated_fare' => $request->input('estimated_fare', 0),
+            'distance_km' => $estimate['distance_km'],
+            'duration_min' => $estimate['duration_min'],
+            'surge' => $estimate['surge_multiplier'],
+            'estimated_fare' => $estimate['estimated_fare'],
         ]);
 
         $tripId = (int) $db->lastInsertId();
@@ -70,6 +110,7 @@ final class TripController
             'id' => $tripId,
             'status' => 'requested',
             'dispatch_status' => $offer ? 'offer_sent' : 'no_riders_available',
+            'estimated_fare' => $estimate['estimated_fare'],
         ], 201);
     }
 
@@ -254,7 +295,7 @@ final class TripController
         if (abs($targetLat) > 0.0001 || abs($targetLng) > 0.0001) {
             $distanceKm = Dispatch::haversineKm((float) $ping['lat'], (float) $ping['lng'], $targetLat, $targetLng);
             $payload['distance_km'] = round($distanceKm, 2);
-            $payload['eta_minutes'] = max(1, (int) round(($distanceKm / self::ASSUMED_SPEED_KMH) * 60));
+            $payload['eta_minutes'] = max(1, (int) round(($distanceKm / Fare::ASSUMED_SPEED_KMH) * 60));
         }
 
         Response::json($payload);

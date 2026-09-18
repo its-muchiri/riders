@@ -41,6 +41,9 @@ $router->get('/api/v1/auth/me', [$auth, 'me']);
 
 // Trips / Deliveries
 $router->post('/api/v1/trips', [$trip, 'create']);
+// Must be registered before the /trips/{id} wildcard below, same pattern
+// as /riders/me/offers vs /riders/{id} (Router matches in registration order).
+$router->get('/api/v1/trips/estimate-fare', [$trip, 'estimateFare']);
 $router->get('/api/v1/trips/{id}', [$trip, 'show']);
 $router->get('/api/v1/trips/{id}/location', [$trip, 'location']);
 $router->get('/api/v1/trips/{id}/ping-stream', [$trip, 'pingStream']);

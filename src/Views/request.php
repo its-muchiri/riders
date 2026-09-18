@@ -30,8 +30,15 @@
     <input type="tel" name="recipient_phone_number" style="display:block; width:100%; padding: var(--ac-space-2); margin-top: var(--ac-space-1);">
   </label>
 
-  <button type="submit" class="btn btn--primary">Request now</button>
+  <button type="submit" class="btn btn--secondary" id="get-estimate-btn">Get price estimate</button>
 </form>
+
+<div id="estimate-card" class="card" hidden style="max-width: 32rem; margin-top: var(--ac-space-4); padding: var(--ac-space-4);">
+  <h2 style="margin-top:0;">Estimated price</h2>
+  <p id="estimate-breakdown" class="card__meta"></p>
+  <p style="font-size: 1.5rem; font-weight: 700;" id="estimate-total"></p>
+  <button type="button" class="btn btn--primary" id="confirm-request-btn">Confirm &amp; request</button>
+</div>
 
 <p id="request-result" class="card__meta" style="margin-top: var(--ac-space-4);"></p>
 
@@ -73,34 +80,99 @@
     }
   }
 
+  // Two-step flow per user-flows.md step 2-3: resolve coordinates + show
+  // an upfront transparent price estimate first, then only create the
+  // trip once the customer explicitly confirms that estimate.
+  let confirmedTrip = null;
+
   document.getElementById("trip-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
     const resultEl = document.getElementById("request-result");
-    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const estimateCard = document.getElementById("estimate-card");
+    const estimateBtn = document.getElementById("get-estimate-btn");
 
-    submitBtn.disabled = true;
+    estimateCard.hidden = true;
+    resultEl.textContent = "";
+    estimateBtn.disabled = true;
     resultEl.textContent = "Locating pickup and destination…";
 
+    const tripType = formData.get("trip_type");
     const pickupAddress = formData.get("pickup_address");
     const destinationAddress = formData.get("destination_address");
+    const recipientPhone = formData.get("recipient_phone_number") || null;
 
     const resolvedPickup = pickup ?? await geocode(pickupAddress);
     const resolvedDestination = await geocode(destinationAddress);
+
+    if (!resolvedPickup || !resolvedDestination) {
+      resultEl.textContent = "Could not locate the pickup and/or destination address — try a more specific address or use current location for pickup.";
+      estimateBtn.disabled = false;
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams({
+        trip_type: tripType,
+        pickup_lat: resolvedPickup.lat,
+        pickup_lng: resolvedPickup.lng,
+        destination_lat: resolvedDestination.lat,
+        destination_lng: resolvedDestination.lng,
+      });
+      const res = await fetch(`/api/v1/trips/estimate-fare?${params}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        resultEl.textContent = "Could not calculate a price estimate: " + (data.error || "unknown error");
+        return;
+      }
+
+      confirmedTrip = {
+        tripType,
+        pickupAddress,
+        destinationAddress,
+        recipientPhone,
+        pickup: resolvedPickup,
+        destination: resolvedDestination,
+      };
+
+      const surgeNote = data.surge_multiplier > 1
+        ? ` (includes a ${data.surge_multiplier}x peak-time surge)`
+        : "";
+      document.getElementById("estimate-breakdown").textContent =
+        `${data.distance_km} km, about ${Math.round(data.duration_min)} min${surgeNote}`;
+      document.getElementById("estimate-total").textContent =
+        `${data.currency} ${data.estimated_fare.toFixed(2)}`;
+      estimateCard.hidden = false;
+      resultEl.textContent = "";
+    } catch (e) {
+      resultEl.textContent = "Network error: " + e.message;
+    } finally {
+      estimateBtn.disabled = false;
+    }
+  });
+
+  document.getElementById("confirm-request-btn").addEventListener("click", async () => {
+    if (!confirmedTrip) return;
+    const resultEl = document.getElementById("request-result");
+    const confirmBtn = document.getElementById("confirm-request-btn");
+
+    confirmBtn.disabled = true;
+    resultEl.textContent = "Requesting…";
 
     try {
       const res = await fetch("/api/v1/trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          trip_type: formData.get("trip_type"),
-          pickup_address: pickupAddress,
-          pickup_lat: resolvedPickup?.lat ?? 0,
-          pickup_lng: resolvedPickup?.lng ?? 0,
-          destination_address: destinationAddress,
-          destination_lat: resolvedDestination?.lat ?? 0,
-          destination_lng: resolvedDestination?.lng ?? 0,
-          recipient_phone_number: formData.get("recipient_phone_number") || null,
+          trip_type: confirmedTrip.tripType,
+          pickup_address: confirmedTrip.pickupAddress,
+          pickup_lat: confirmedTrip.pickup.lat,
+          pickup_lng: confirmedTrip.pickup.lng,
+          destination_address: confirmedTrip.destinationAddress,
+          destination_lat: confirmedTrip.destination.lat,
+          destination_lng: confirmedTrip.destination.lng,
+          recipient_phone_number: confirmedTrip.recipientPhone,
         }),
       });
       const data = await res.json();
@@ -114,6 +186,7 @@
         return;
       }
 
+      document.getElementById("estimate-card").hidden = true;
       const dispatchNote = data.dispatch_status === "no_riders_available"
         ? " No riders are available near you right now — we'll keep looking."
         : " A nearby rider has been offered your trip.";
@@ -121,7 +194,7 @@
     } catch (e) {
       resultEl.textContent = "Network error: " + e.message;
     } finally {
-      submitBtn.disabled = false;
+      confirmBtn.disabled = false;
     }
   });
 </script>
